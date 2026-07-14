@@ -10,6 +10,18 @@ function Tab:new(area, tab)
 end
 
 function Tab:layout()
+	if self._tab.pref.grid then
+		self._chunks = ui.Layout()
+			:direction(ui.Layout.HORIZONTAL)
+			:constraints({
+				ui.Constraint.Length(0),
+				ui.Constraint.Fill(1),
+				ui.Constraint.Length(0),
+			})
+			:split(self._area)
+		return
+	end
+
 	local ratio = rt.mgr.ratio
 	local all = ratio[1] + ratio[2] + ratio[3]
 	self._chunks = ui.Layout()

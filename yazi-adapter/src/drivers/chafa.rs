@@ -8,12 +8,10 @@ use yazi_config::THEME;
 use yazi_emulator::Emulator;
 use yazi_tty::sequence::{MoveTo, ResetAttrs, SetBg};
 
-use crate::ADAPTOR;
-
 pub(super) struct Chafa;
 
 impl Chafa {
-	pub(super) async fn image_show(path: PathBuf, max: Rect) -> Result<Rect> {
+	pub(super) async fn image_show(_: u32, path: PathBuf, max: Rect) -> Result<Rect> {
 		let child = Command::new("chafa")
 			.args([
 				"-f",
@@ -51,15 +49,8 @@ impl Chafa {
 			bail!("failed to parse chafa output");
 		};
 
-		let area = Rect {
-			x:      max.x,
-			y:      max.y,
-			width:  first.width() as u16,
-			height: lines.len() as u16,
-		};
+		let area = Rect { x: max.x, y: max.y, width: first.width() as u16, height: lines.len() as u16 };
 
-		ADAPTOR.image_hide()?;
-		ADAPTOR.shown_store(area);
 		Emulator::move_lock((max.x, max.y), |w| {
 			for (i, line) in lines.into_iter().enumerate() {
 				w.write_all(line)?;
@@ -69,7 +60,7 @@ impl Chafa {
 		})
 	}
 
-	pub(super) fn image_erase(area: Rect) -> Result<()> {
+	pub(super) fn image_erase(_: u32, area: Rect) -> Result<()> {
 		let s = " ".repeat(area.width as usize);
 		Emulator::move_lock((0, 0), |w| {
 			if let Some(c) = THEME.app.overall.get().bg {

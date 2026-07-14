@@ -32,7 +32,16 @@ impl Actor for Reflow {
 
 				let id: LuaString = t.get("_id")?;
 				match &*id.as_bytes() {
-					b"current" => layout.current = *t.raw_get::<yazi_binding::elements::Rect>("_area")?,
+					b"current" => {
+						let area = *t.raw_get::<yazi_binding::elements::Rect>("_area")?;
+						layout.set_current(
+							area,
+							t.raw_get("_rows").unwrap_or(area.height),
+							t.raw_get("_columns").unwrap_or(1),
+							t.raw_get("_cell_w").unwrap_or(area.width),
+							t.raw_get("_cell_h").unwrap_or(1),
+						);
+					}
 					b"preview" => layout.preview = *t.raw_get::<yazi_binding::elements::Rect>("_area")?,
 					b"progress" => layout.progress = *t.raw_get::<yazi_binding::elements::Rect>("_area")?,
 					_ => {}

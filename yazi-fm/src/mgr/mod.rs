@@ -1,1 +1,1 @@
-yazi_macro::mod_flat!(modal preview);
+yazi_macro::mod_flat!(grid modal preview);

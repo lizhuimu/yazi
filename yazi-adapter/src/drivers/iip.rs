@@ -1,32 +1,36 @@
 use std::{fmt::Write as _, io::Write as _, path::PathBuf};
 
 use anyhow::Result;
-use base64::{Engine, engine::{Config, general_purpose::STANDARD}};
-use image::{DynamicImage, ExtendedColorType, ImageEncoder, codecs::{jpeg::JpegEncoder, png::PngEncoder}};
+use base64::{
+	Engine,
+	engine::{Config, general_purpose::STANDARD},
+};
+use image::{
+	DynamicImage, ExtendedColorType, ImageEncoder,
+	codecs::{jpeg::JpegEncoder, png::PngEncoder},
+};
 use ratatui_core::layout::Rect;
 use yazi_config::{THEME, YAZI};
 use yazi_emulator::{CLOSE, Emulator, START};
 use yazi_tty::sequence::{MoveTo, ResetAttrs, SetBg};
 
-use crate::{ADAPTOR, Image};
+use crate::Image;
 
 pub(super) struct Iip;
 
 impl Iip {
-	pub(super) async fn image_show(path: PathBuf, max: Rect) -> Result<Rect> {
+	pub(super) async fn image_show(_: u32, path: PathBuf, max: Rect) -> Result<Rect> {
 		let img = Image::downscale(path, max).await?;
 		let area = Image::pixel_area((img.width(), img.height()), max);
 		let b = Self::encode(img).await?;
 
-		ADAPTOR.image_hide()?;
-		ADAPTOR.shown_store(area);
 		Emulator::move_lock((max.x, max.y), |w| {
 			w.write_all(&b)?;
 			Ok(area)
 		})
 	}
 
-	pub(super) fn image_erase(area: Rect) -> Result<()> {
+	pub(super) fn image_erase(_: u32, area: Rect) -> Result<()> {
 		let s = " ".repeat(area.width as usize);
 		Emulator::move_lock((0, 0), |w| {
 			if let Some(c) = THEME.app.overall.get().bg {

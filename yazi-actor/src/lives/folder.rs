@@ -8,14 +8,16 @@ use super::{Entries, File, Lives, PtrCell};
 
 pub(super) struct Folder {
 	window: Range<usize>,
-	inner:  PtrCell<yazi_core::tab::Folder>,
-	tab:    PtrCell<yazi_core::tab::Tab>,
+	inner: PtrCell<yazi_core::tab::Folder>,
+	tab: PtrCell<yazi_core::tab::Tab>,
 }
 
 impl Deref for Folder {
 	type Target = yazi_core::tab::Folder;
 
-	fn deref(&self) -> &Self::Target { &self.inner }
+	fn deref(&self) -> &Self::Target {
+		&self.inner
+	}
 }
 
 impl Folder {
@@ -27,7 +29,7 @@ impl Folder {
 		let window = match window {
 			Some(w) => w,
 			None => {
-				let limit = LAYOUT.get().preview.height as usize;
+				let limit = LAYOUT.get().folder_limit();
 				inner.offset..inner.entries.len().min(inner.offset + limit)
 			}
 		};

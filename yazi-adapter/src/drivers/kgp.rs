@@ -7,10 +7,9 @@ use image::DynamicImage;
 use ratatui_core::{layout::Rect, style::Color};
 use yazi_config::THEME;
 use yazi_emulator::{CLOSE, ESCAPE, Emulator, START};
-use yazi_shim::cell::SyncCell;
 use yazi_tty::sequence::{MoveTo, ResetAttrs, SetBg, SetFg};
 
-use crate::{ADAPTOR, image::Image};
+use crate::image::Image;
 
 static DIACRITICS: [char; 297] = [
 	'\u{0305}',
@@ -315,15 +314,14 @@ static DIACRITICS: [char; 297] = [
 pub(super) struct Kgp;
 
 impl Kgp {
-	pub(super) async fn image_show(path: PathBuf, max: Rect) -> Result<Rect> {
+	pub(super) async fn image_show(id: u32, path: PathBuf, max: Rect) -> Result<Rect> {
 		let img = Image::downscale(path, max).await?;
 		let area = Image::pixel_area((img.width(), img.height()), max);
 
-		let b1 = Self::encode(img).await?;
-		let b2 = Self::place(&area)?;
+		let id = Self::image_id(id);
+		let b1 = Self::encode(id, img).await?;
+		let b2 = Self::place(id, &area)?;
 
-		ADAPTOR.image_hide()?;
-		ADAPTOR.shown_store(area);
 		Emulator::move_lock((area.x, area.y), |w| {
 			w.write_all(&b1)?;
 			w.write_all(&b2)?;
@@ -331,7 +329,8 @@ impl Kgp {
 		})
 	}
 
-	pub(super) fn image_erase(area: Rect) -> Result<()> {
+	pub(super) fn image_erase(id: u32, area: Rect) -> Result<()> {
+		let id = Self::image_id(id);
 		let s = " ".repeat(area.width as usize);
 		Emulator::move_lock((0, 0), |w| {
 			if let Some(c) = THEME.app.overall.get().bg {
@@ -343,13 +342,21 @@ impl Kgp {
 				write!(w, "{s}")?;
 			}
 
-			write!(w, "{ResetAttrs}{START}_Gq=2,a=d,d=A{ESCAPE}\\{CLOSE}")?;
+			write!(w, "{ResetAttrs}{START}_Gq=2,a=d,d=i,i={id}{ESCAPE}\\{CLOSE}")?;
 			Ok(())
 		})
 	}
 
-	async fn encode(img: DynamicImage) -> Result<Vec<u8>> {
-		fn output(raw: &[u8], format: u8, size: (u32, u32)) -> Result<Vec<u8>> {
+	pub(super) fn image_refresh(id: u32, area: Rect) -> Result<()> {
+		let b = Self::place(Self::image_id(id), &area)?;
+		Emulator::move_lock((area.x, area.y), |w| {
+			w.write_all(&b)?;
+			Ok(())
+		})
+	}
+
+	async fn encode(id: u32, img: DynamicImage) -> Result<Vec<u8>> {
+		fn output(id: u32, raw: &[u8], format: u8, size: (u32, u32)) -> Result<Vec<u8>> {
 			let b64 = general_purpose::STANDARD.encode(raw).into_bytes();
 
 			let mut it = b64.chunks(4096).peekable();
@@ -360,7 +367,7 @@ impl Kgp {
 					"{START}_Gq=2,a=T,C=1,U=1,f={format},s={},v={},i={},m={};{}{ESCAPE}\\{CLOSE}",
 					size.0,
 					size.1,
-					Kgp::image_id(),
+					id,
 					it.peek().is_some() as u8,
 					unsafe { str::from_utf8_unchecked(first) },
 				)?;
@@ -378,17 +385,16 @@ impl Kgp {
 
 		let size = (img.width(), img.height());
 		tokio::task::spawn_blocking(move || match img {
-			DynamicImage::ImageRgb8(v) => output(v.as_raw(), 24, size),
-			DynamicImage::ImageRgba8(v) => output(v.as_raw(), 32, size),
-			v => output(v.into_rgb8().as_raw(), 24, size),
+			DynamicImage::ImageRgb8(v) => output(id, v.as_raw(), 24, size),
+			DynamicImage::ImageRgba8(v) => output(id, v.as_raw(), 32, size),
+			v => output(id, v.into_rgb8().as_raw(), 24, size),
 		})
 		.await?
 	}
 
-	fn place(area: &Rect) -> Result<Vec<u8>> {
+	fn place(id: u32, area: &Rect) -> Result<Vec<u8>> {
 		let mut buf = Vec::with_capacity(area.width as usize * area.height as usize * 3 + 500);
 
-		let id = Self::image_id();
 		let (r, g, b) = ((id >> 16) & 0xff, (id >> 8) & 0xff, id & 0xff);
 		write!(buf, "{}", SetFg(Color::Rgb(r as u8, g as u8, b as u8)))?;
 
@@ -409,15 +415,7 @@ impl Kgp {
 		Ok(buf)
 	}
 
-	fn image_id() -> u32 {
-		static CACHE: SyncCell<Option<u32>> = SyncCell::new(None);
-		match CACHE.get() {
-			Some(n) => n,
-			None => {
-				let n = std::process::id() % (0xffffff + 1);
-				CACHE.set(Some(n));
-				n
-			}
-		}
+	fn image_id(id: u32) -> u32 {
+		(((std::process::id() % 0xff) + 1) << 16) | (id & 0xffff)
 	}
 }

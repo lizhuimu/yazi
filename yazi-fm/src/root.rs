@@ -12,7 +12,9 @@ pub(super) struct Root<'a> {
 }
 
 impl<'a> Root<'a> {
-	pub(super) fn new(core: &'a mut Core) -> Self { Self { core } }
+	pub(super) fn new(core: &'a mut Core) -> Self {
+		Self { core }
+	}
 
 	pub(super) fn reflow(area: Rect) -> mlua::Result<Table> {
 		let area = yazi_binding::elements::Rect::from(area);
@@ -28,6 +30,7 @@ impl Widget for Root<'_> {
 		}
 
 		mgr::Preview::new(self.core).render(area, buf);
+		mgr::Grid::new(self.core).render(area, buf);
 		mgr::Modal::new(self.core).render(area, buf);
 
 		if self.core.tasks.visible {

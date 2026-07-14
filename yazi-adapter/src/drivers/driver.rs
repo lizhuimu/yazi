@@ -21,7 +21,7 @@ pub enum Driver {
 }
 
 impl Driver {
-	pub async fn image_show<P>(self, path: P, max: Rect) -> Result<Rect>
+	pub async fn image_show<P>(self, id: u32, path: P, max: Rect) -> Result<Rect>
 	where
 		P: Into<PathBuf>,
 	{
@@ -31,27 +31,44 @@ impl Driver {
 
 		let path = path.into();
 		match self {
-			Self::Kgp => Kgp::image_show(path, max).await,
-			Self::KgpOld => KgpOld::image_show(path, max).await,
-			Self::Iip => Iip::image_show(path, max).await,
-			Self::Sixel => Sixel::image_show(path, max).await,
-			Self::X11 | Self::Wayland => Ueberzug::image_show(path, max).await,
-			Self::Chafa => Chafa::image_show(path, max).await,
+			Self::Kgp => Kgp::image_show(id, path, max).await,
+			Self::KgpOld => KgpOld::image_show(id, path, max).await,
+			Self::Iip => Iip::image_show(id, path, max).await,
+			Self::Sixel => Sixel::image_show(id, path, max).await,
+			Self::X11 | Self::Wayland => Ueberzug::image_show(id, path, max).await,
+			Self::Chafa => Chafa::image_show(id, path, max).await,
 		}
 	}
 
-	pub fn image_erase(self, area: Rect) -> Result<()> {
+	pub fn image_erase(self, id: u32, area: Rect) -> Result<()> {
 		match self {
-			Self::Kgp => Kgp::image_erase(area),
-			Self::KgpOld => KgpOld::image_erase(area),
-			Self::Iip => Iip::image_erase(area),
-			Self::Sixel => Sixel::image_erase(area),
-			Self::X11 | Self::Wayland => Ueberzug::image_erase(area),
-			Self::Chafa => Chafa::image_erase(area),
+			Self::Kgp => Kgp::image_erase(id, area),
+			Self::KgpOld => KgpOld::image_erase(id, area),
+			Self::Iip => Iip::image_erase(id, area),
+			Self::Sixel => Sixel::image_erase(id, area),
+			Self::X11 | Self::Wayland => Ueberzug::image_erase(id, area),
+			Self::Chafa => Chafa::image_erase(id, area),
 		}
 	}
 
-	pub(crate) fn start(self) { Ueberzug::start(self); }
+	pub async fn image_refresh<P>(self, id: u32, path: P, max: Rect, area: Rect) -> Result<()>
+	where
+		P: Into<PathBuf>,
+	{
+		match self {
+			Self::Kgp => Kgp::image_refresh(id, area),
+			Self::X11 | Self::Wayland => Ok(()),
+			_ => self.image_show(id, path, max).await.map(|_| ()),
+		}
+	}
+
+	pub fn needs_full_erase_for_update(self) -> bool {
+		self == Self::KgpOld
+	}
+
+	pub(crate) fn start(self) {
+		Ueberzug::start(self);
+	}
 
 	pub(crate) fn needs_ueberzug(self) -> bool {
 		!matches!(self, Self::Kgp | Self::KgpOld | Self::Iip | Self::Sixel)

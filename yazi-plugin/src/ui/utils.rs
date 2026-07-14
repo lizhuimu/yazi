@@ -1,10 +1,16 @@
 use std::{borrow::Cow, iter};
 
 use ansi_to_tui::IntoText;
-use mlua::{AnyUserData, ExternalError, ExternalResult, IntoLua, Lua, LuaString, ObjectLike, Table, Value};
+use mlua::{
+	AnyUserData, ExternalError, ExternalResult, IntoLua, Lua, LuaString, ObjectLike, Table, Value,
+};
 use tracing::error;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
-use yazi_binding::{Permit, PermitRef, elements::{Line, Rect, Span, Wrap}, runtime};
+use yazi_binding::{
+	Permit, PermitRef,
+	elements::{Line, Rect, Span, Wrap},
+	runtime,
+};
 use yazi_config::LAYOUT;
 use yazi_scheduler::AppProxy;
 use yazi_shared::replace_to_printable;
@@ -90,7 +96,16 @@ pub(super) fn redraw(lua: &Lua) -> mlua::Result<Value> {
 
 		let mut layout = LAYOUT.get();
 		match &*id.as_bytes() {
-			b"current" => layout.current = *c.raw_get::<Rect>("_area")?,
+			b"current" => {
+				let area = *c.raw_get::<Rect>("_area")?;
+				layout.set_current(
+					area,
+					c.raw_get("_rows").unwrap_or(area.height),
+					c.raw_get("_columns").unwrap_or(1),
+					c.raw_get("_cell_w").unwrap_or(area.width),
+					c.raw_get("_cell_h").unwrap_or(1),
+				);
+			}
 			b"preview" => layout.preview = *c.raw_get::<Rect>("_area")?,
 			b"progress" => layout.progress = *c.raw_get::<Rect>("_area")?,
 			_ => {}

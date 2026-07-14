@@ -14,6 +14,10 @@ impl Actor for Enter {
 	const NAME: &str = "enter";
 
 	fn act(cx: &mut Ctx, _: Self::Form) -> Result<Data> {
+		if cx.source().is_key() && cx.tab().pref.grid {
+			return act!(mgr:arrow, cx, 1);
+		}
+
 		let Some(h) = cx.hovered().filter(|h| h.is_dir()) else { succ!() };
 
 		let url = if h.url.is_search() { h.url.to_regular()? } else { h.url.clone() };

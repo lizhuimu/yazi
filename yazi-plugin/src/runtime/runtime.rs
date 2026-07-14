@@ -23,7 +23,9 @@ pub fn compose() -> Composer<ComposerGet, ComposerSet> {
 		.into_lua(lua)
 	}
 
-	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> { Ok(value) }
+	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> {
+		Ok(value)
+	}
 
 	Composer::new(get, set)
 }
@@ -36,7 +38,9 @@ fn open() -> Composer<ComposerGet, ComposerSet> {
 		}
 	}
 
-	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> { Ok(value) }
+	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> {
+		Ok(value)
+	}
 
 	Composer::new(get, set)
 }
@@ -51,7 +55,9 @@ fn args() -> Composer<ComposerGet, ComposerSet> {
 		}
 	}
 
-	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> { Ok(value) }
+	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> {
+		Ok(value)
+	}
 
 	Composer::new(get, set)
 }
@@ -70,6 +76,9 @@ fn mgr() -> Composer<ComposerGet, ComposerSet> {
 			b"sort_fallback" => lua.to_value_with(&m.sort_fallback, SER_OPT)?,
 
 			b"linemode" => lua.create_string(&**m.linemode.load())?.into_lua(lua)?,
+			b"grid" => m.grid.get().into_lua(lua)?,
+			b"grid_width" => m.grid_width.get().into_lua(lua)?,
+			b"grid_height" => m.grid_height.get().into_lua(lua)?,
 			b"show_hidden" => m.show_hidden.get().into_lua(lua)?,
 			b"show_symlink" => m.show_symlink.get().into_lua(lua)?,
 			b"scrolloff" => m.scrolloff.get().into_lua(lua)?,
@@ -115,7 +124,9 @@ fn preview() -> Composer<ComposerGet, ComposerSet> {
 		.into_lua(lua)
 	}
 
-	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> { Ok(value) }
+	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> {
+		Ok(value)
+	}
 
 	Composer::new(get, set)
 }
@@ -140,7 +151,9 @@ fn tasks() -> Composer<ComposerGet, ComposerSet> {
 		.into_lua(lua)
 	}
 
-	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> { Ok(value) }
+	fn set(_: &Lua, _: &[u8], value: Value) -> mlua::Result<Value> {
+		Ok(value)
+	}
 
 	Composer::new(get, set)
 }

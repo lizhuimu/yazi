@@ -8,25 +8,23 @@ use ratatui_core::layout::Rect;
 use yazi_emulator::{CLOSE, ESCAPE, Emulator, START};
 use yazi_tty::TTY;
 
-use crate::{ADAPTOR, Image};
+use crate::Image;
 
 pub(super) struct KgpOld;
 
 impl KgpOld {
-	pub(super) async fn image_show(path: PathBuf, max: Rect) -> Result<Rect> {
+	pub(super) async fn image_show(_: u32, path: PathBuf, max: Rect) -> Result<Rect> {
 		let img = Image::downscale(path, max).await?;
 		let area = Image::pixel_area((img.width(), img.height()), max);
 		let b = Self::encode(img).await?;
 
-		ADAPTOR.image_hide()?;
-		ADAPTOR.shown_store(area);
 		Emulator::move_lock((area.x, area.y), |w| {
 			w.write_all(&b)?;
 			Ok(area)
 		})
 	}
 
-	pub(super) fn image_erase(_: Rect) -> Result<()> {
+	pub(super) fn image_erase(_: u32, _: Rect) -> Result<()> {
 		let mut w = TTY.lockout();
 		write!(w, "{START}_Gq=2,a=d,d=A{ESCAPE}\\{CLOSE}")?;
 		w.flush()?;

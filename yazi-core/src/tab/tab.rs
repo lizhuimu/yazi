@@ -6,27 +6,30 @@ use tokio::task::JoinHandle;
 use yazi_binding::position::{Origin, Position};
 use yazi_config::LAYOUT;
 use yazi_fs::file::File;
-use yazi_shared::{id::{Id, Ids}, url::{UrlBuf, UrlLike}};
+use yazi_shared::{
+	id::{Id, Ids},
+	url::{UrlBuf, UrlLike},
+};
 use yazi_term::TERM;
 
 use super::{Backstack, Finder, Folder, History, Mode, Preference, Preview};
 use crate::{spot::Spot, tab::Selected};
 
 pub struct Tab {
-	pub id:      Id,
-	pub mode:    Mode,
-	pub pref:    Preference,
+	pub id: Id,
+	pub mode: Mode,
+	pub pref: Preference,
 	pub current: Folder,
-	pub parent:  Option<Folder>,
+	pub parent: Option<Folder>,
 
 	pub backstack: Backstack,
-	pub history:   History,
-	pub selected:  Selected,
+	pub history: History,
+	pub selected: Selected,
 
-	pub spot:    Spot,
+	pub spot: Spot,
 	pub preview: Preview,
-	pub finder:  Option<Finder>,
-	pub search:  Option<JoinHandle<Result<()>>>,
+	pub finder: Option<Finder>,
+	pub search: Option<JoinHandle<Result<()>>>,
 }
 
 impl Default for Tab {
@@ -34,20 +37,20 @@ impl Default for Tab {
 		static IDS: Ids = Ids::new();
 
 		Self {
-			id:      IDS.next(),
-			mode:    Default::default(),
-			pref:    Default::default(),
+			id: IDS.next(),
+			mode: Default::default(),
+			pref: Default::default(),
 			current: Default::default(),
-			parent:  Default::default(),
+			parent: Default::default(),
 
 			backstack: Default::default(),
-			history:   Default::default(),
-			selected:  Default::default(),
+			history: Default::default(),
+			selected: Default::default(),
 
-			spot:    Default::default(),
+			spot: Default::default(),
 			preview: Default::default(),
-			finder:  Default::default(),
-			search:  Default::default(),
+			finder: Default::default(),
+			search: Default::default(),
 		}
 	}
 }
@@ -62,7 +65,9 @@ impl Tab {
 impl Tab {
 	// --- Current
 	#[inline]
-	pub fn cwd(&self) -> &UrlBuf { &self.current.url }
+	pub fn cwd(&self) -> &UrlBuf {
+		&self.current.url
+	}
 
 	pub fn name(&self) -> Cow<'_, str> {
 		let url = &self.current.url;
@@ -76,20 +81,48 @@ impl Tab {
 	}
 
 	#[inline]
-	pub fn hovered(&self) -> Option<&File> { self.current.hovered() }
+	pub fn hovered(&self) -> Option<&File> {
+		self.current.hovered()
+	}
 
 	#[inline]
-	pub fn hovered_url(&self) -> Option<&UrlBuf> { self.current.hovered_url() }
+	pub fn hovered_url(&self) -> Option<&UrlBuf> {
+		self.current.hovered_url()
+	}
 
 	#[inline]
-	pub fn hovered_mut(&mut self) -> Option<&mut File> { self.current.hovered_mut() }
+	pub fn hovered_mut(&mut self) -> Option<&mut File> {
+		self.current.hovered_mut()
+	}
 
 	pub fn hovered_rect(&self) -> Option<Rect> {
-		let y = self.current.entries.position(self.hovered()?.urn())? - self.current.offset;
+		let layout = LAYOUT.get();
+		let columns = layout.folder_columns();
+		let start = if columns > 1 {
+			self.current.offset - self.current.offset % columns
+		} else {
+			self.current.offset
+		};
+		let index = self.current.entries.position(self.hovered()?.urn())? - start;
 
-		let mut rect = LAYOUT.get().current;
-		rect.y = rect.y.saturating_sub(1) + y as u16;
-		rect.height = 1;
+		let mut rect = layout.current;
+		if columns > 1 {
+			let column = index % columns;
+			let row = index / columns;
+			let x = rect.x + column as u16 * layout.folder_cell_width();
+
+			rect.x = x;
+			rect.y += row as u16 * layout.folder_cell_height();
+			rect.width = if column + 1 == columns {
+				rect.right().saturating_sub(x)
+			} else {
+				layout.folder_cell_width()
+			};
+			rect.height = layout.folder_cell_height();
+		} else {
+			rect.y = rect.y.saturating_sub(1) + index as u16;
+			rect.height = 1;
+		}
 		Some(rect)
 	}
 

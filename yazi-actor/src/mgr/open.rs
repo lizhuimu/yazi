@@ -2,12 +2,12 @@ use anyhow::Result;
 use futures::StreamExt;
 use hashbrown::HashSet;
 use yazi_boot::ARGS;
-use yazi_core::mgr::OpenDoOpt;
+use yazi_core::mgr::{CdSource, OpenDoOpt};
 use yazi_fs::file::File;
 use yazi_macro::{act, succ};
 use yazi_parser::mgr::OpenForm;
 use yazi_proxy::MgrProxy;
-use yazi_shared::data::Data;
+use yazi_shared::{data::Data, url::UrlLike};
 use yazi_vfs::VfsFile;
 
 use crate::{Actor, Ctx, mgr::Quit};
@@ -29,6 +29,17 @@ impl Actor for Open {
 				act!(mgr:escape_visual, cx)?;
 				Quit::with_selected(cx.tab().selected_or_hovered_urls())
 			});
+		}
+
+		if cx.source().is_key()
+			&& cx.tab().pref.grid
+			&& !opt.interactive
+			&& opt.targets.is_empty()
+			&& cx.tab().selected.is_empty()
+			&& let Some(h) = cx.hovered().filter(|h| h.is_dir())
+		{
+			let url = if h.url.is_search() { h.url.to_regular()? } else { h.url.clone() };
+			return act!(mgr:cd, cx, (url, CdSource::Enter));
 		}
 
 		if opt.targets.is_empty() {

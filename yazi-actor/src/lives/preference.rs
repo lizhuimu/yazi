@@ -12,7 +12,9 @@ pub(super) struct Preference {
 impl Deref for Preference {
 	type Target = yazi_core::tab::Preference;
 
-	fn deref(&self) -> &Self::Target { &self.inner }
+	fn deref(&self) -> &Self::Target {
+		&self.inner
+	}
 }
 
 impl Preference {
@@ -26,6 +28,7 @@ impl UserData for Preference {
 		// Display
 		fields.add_cached_field("name", |lua, me| lua.create_string(&me.name));
 		fields.add_cached_field("linemode", |lua, me| lua.create_string(&*me.linemode));
+		fields.add_field_method_get("grid", |_, me| Ok(me.grid));
 		fields.add_field_method_get("show_hidden", |_, me| Ok(me.show_hidden));
 
 		// Sorting

@@ -2,6 +2,7 @@ use anyhow::Result;
 use yazi_macro::{act, render, succ};
 use yazi_parser::ArrowForm;
 use yazi_shared::data::Data;
+use yazi_widgets::Step;
 
 use crate::{Actor, Ctx};
 
@@ -14,8 +15,18 @@ impl Actor for Arrow {
 
 	fn act(cx: &mut Ctx, form: Self::Form) -> Result<Data> {
 		let tab = cx.tab_mut();
+		let step = if tab.pref.grid {
+			match form.step {
+				Step::Prev => Step::Offset(-(yazi_config::LAYOUT.get().folder_columns() as isize)),
+				Step::Next => Step::Offset(yazi_config::LAYOUT.get().folder_columns() as isize),
+				step => step,
+			}
+		} else {
+			form.step
+		};
+
 		let old = tab.current.cursor;
-		if !tab.current.arrow(form.step) {
+		if !tab.current.arrow(step) {
 			succ!();
 		}
 
@@ -24,7 +35,7 @@ impl Actor for Arrow {
 
 		// Visual selection
 		if let Some(visual) = tab.mode.visual_mut() {
-			visual.arrow(form.step, old, tab.current.cursor);
+			visual.arrow(step, old, tab.current.cursor);
 		}
 
 		act!(mgr:hover, cx)?;

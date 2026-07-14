@@ -1,4 +1,7 @@
-use std::{fmt::{Display, Write}, str::FromStr};
+use std::{
+	fmt::{Display, Write},
+	str::FromStr,
+};
 
 use anyhow::bail;
 use mlua::{IntoLua, Lua, LuaSerdeExt, Value};
@@ -9,10 +12,10 @@ use yazi_term::event::{KeyCode, KeyEvent, Modifiers};
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Key {
 	#[serde(flatten)]
-	pub code:   KeyCode,
-	pub shift:  bool,
-	pub ctrl:   bool,
-	pub alt:    bool,
+	pub code: KeyCode,
+	pub shift: bool,
+	pub ctrl: bool,
+	pub alt: bool,
 	#[serde(rename = "super")]
 	pub super_: bool,
 }
@@ -33,11 +36,21 @@ impl Key {
 
 impl From<KeyEvent> for Key {
 	fn from(value: KeyEvent) -> Self {
+		let mut code = value.code;
+		let mut shift = value.modifiers.contains(Modifiers::SHIFT);
+		if shift
+			&& let KeyCode::Char(c) = code
+			&& c.is_ascii_lowercase()
+		{
+			code = KeyCode::Char(c.to_ascii_uppercase());
+		}
+		shift |= code.implies_shift();
+
 		Self {
-			code:   value.code,
-			shift:  value.modifiers.contains(Modifiers::SHIFT),
-			ctrl:   value.modifiers.contains(Modifiers::CONTROL),
-			alt:    value.modifiers.contains(Modifiers::ALT),
+			code,
+			shift,
+			ctrl: value.modifiers.contains(Modifiers::CONTROL),
+			alt: value.modifiers.contains(Modifiers::ALT),
 			super_: value.modifiers.contains(Modifiers::SUPER),
 		}
 	}
@@ -187,5 +200,20 @@ impl Display for Key {
 }
 
 impl IntoLua for Key {
-	fn into_lua(self, lua: &Lua) -> mlua::Result<Value> { lua.to_value_with(&self, SER_OPT) }
+	fn into_lua(self, lua: &Lua) -> mlua::Result<Value> {
+		lua.to_value_with(&self, SER_OPT)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn shifted_lowercase_event_matches_uppercase_binding() {
+		let binding = Key::from_str("M").unwrap();
+		let event = Key::from(KeyEvent::new(KeyCode::Char('m'), Modifiers::SHIFT));
+
+		assert_eq!(binding, event);
+	}
 }

@@ -4,41 +4,47 @@ use yazi_config::{LAYOUT, YAZI};
 use yazi_dds::Pubsub;
 use yazi_fs::{Entries, FilesOp, FolderStage, cha::Cha, file::File};
 use yazi_macro::err;
-use yazi_shared::{id::Id, path::{AsPath, PathBufDyn, PathDyn}, url::UrlBuf};
+use yazi_shared::{
+	id::Id,
+	path::{AsPath, PathBufDyn, PathDyn},
+	url::UrlBuf,
+};
 use yazi_widgets::{Scrollable, Step};
 
 use crate::MgrProxy;
 
 pub struct Folder {
-	pub url:     UrlBuf,
-	pub cha:     Cha,
+	pub url: UrlBuf,
+	pub cha: Cha,
 	pub entries: Entries,
-	pub stage:   FolderStage,
+	pub stage: FolderStage,
 
 	pub offset: usize,
 	pub cursor: usize,
 
-	pub page:  usize,
+	pub page: usize,
 	pub trace: Option<PathBufDyn>,
 }
 
 impl Default for Folder {
 	fn default() -> Self {
 		Self {
-			url:     Default::default(),
-			cha:     Default::default(),
+			url: Default::default(),
+			cha: Default::default(),
 			entries: Entries::new(YAZI.mgr.show_hidden.get()),
-			stage:   Default::default(),
-			offset:  Default::default(),
-			cursor:  Default::default(),
-			page:    Default::default(),
-			trace:   Default::default(),
+			stage: Default::default(),
+			offset: Default::default(),
+			cursor: Default::default(),
+			page: Default::default(),
+			trace: Default::default(),
 		}
 	}
 }
 
 impl<T: Into<UrlBuf>> From<T> for Folder {
-	fn from(value: T) -> Self { Self { url: value.into(), ..Default::default() } }
+	fn from(value: T) -> Self {
+		Self { url: value.into(), ..Default::default() }
+	}
 }
 
 impl Folder {
@@ -148,8 +154,15 @@ impl Folder {
 		let old = self.offset;
 		let len = self.entries.len();
 
-		let limit = LAYOUT.get().folder_limit();
-		let scrolloff = (limit / 2).min(YAZI.mgr.scrolloff.get() as usize);
+		let layout = LAYOUT.get();
+		let limit = layout.folder_limit();
+		let columns = layout.folder_columns();
+		let rows = layout.folder_rows();
+		let scrolloff = if columns > 1 {
+			columns * (rows / 2).min(YAZI.mgr.scrolloff.get() as usize)
+		} else {
+			(limit / 2).min(YAZI.mgr.scrolloff.get() as usize)
+		};
 
 		self.offset = if self.cursor < (self.offset + limit).min(len).saturating_sub(scrolloff) {
 			len.saturating_sub(limit).min(self.offset)
@@ -158,19 +171,29 @@ impl Folder {
 		}
 		.min(self.cursor);
 
+		if columns > 1 {
+			self.offset -= self.offset % columns;
+		}
+
 		old != self.offset
 	}
 }
 
 impl Folder {
 	#[inline]
-	pub fn hovered(&self) -> Option<&File> { self.entries.get(self.cursor) }
+	pub fn hovered(&self) -> Option<&File> {
+		self.entries.get(self.cursor)
+	}
 
 	#[inline]
-	pub fn hovered_mut(&mut self) -> Option<&mut File> { self.entries.get_mut(self.cursor) }
+	pub fn hovered_mut(&mut self) -> Option<&mut File> {
+		self.entries.get_mut(self.cursor)
+	}
 
 	#[inline]
-	pub fn hovered_url(&self) -> Option<&UrlBuf> { self.hovered().map(|f| &f.url) }
+	pub fn hovered_url(&self) -> Option<&UrlBuf> {
+		self.hovered().map(|f| &f.url)
+	}
 
 	pub fn paginate(&self, page: usize) -> &[File] {
 		let len = self.entries.len();
@@ -183,13 +206,28 @@ impl Folder {
 }
 
 impl Scrollable for Folder {
-	fn total(&self) -> usize { self.entries.len() }
+	fn total(&self) -> usize {
+		self.entries.len()
+	}
 
-	fn limit(&self) -> usize { LAYOUT.get().folder_limit() }
+	fn limit(&self) -> usize {
+		LAYOUT.get().folder_limit()
+	}
 
-	fn scrolloff(&self) -> usize { (self.limit() / 2).min(YAZI.mgr.scrolloff.get() as usize) }
+	fn scrolloff(&self) -> usize {
+		let layout = LAYOUT.get();
+		if layout.folder_columns() > 1 {
+			layout.folder_columns() * (layout.folder_rows() / 2).min(YAZI.mgr.scrolloff.get() as usize)
+		} else {
+			(self.limit() / 2).min(YAZI.mgr.scrolloff.get() as usize)
+		}
+	}
 
-	fn cursor_mut(&mut self) -> &mut usize { &mut self.cursor }
+	fn cursor_mut(&mut self) -> &mut usize {
+		&mut self.cursor
+	}
 
-	fn offset_mut(&mut self) -> &mut usize { &mut self.offset }
+	fn offset_mut(&mut self) -> &mut usize {
+		&mut self.offset
+	}
 }

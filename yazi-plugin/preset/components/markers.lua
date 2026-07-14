@@ -9,10 +9,10 @@ function Markers:new(chunks, tab)
 end
 
 function Markers:build()
-	self._children = {
-		Marker:new(self._chunks[1], self._tab.parent),
-		Marker:new(self._chunks[2], self._tab.current),
-	}
+	self._children = { Marker:new(self._chunks[1], self._tab.parent) }
+	if not self._tab.pref.grid then
+		self._children[#self._children + 1] = Marker:new(self._chunks[2], self._tab.current)
+	end
 end
 
 function Markers:reflow() return {} end

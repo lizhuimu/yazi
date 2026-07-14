@@ -3,16 +3,23 @@ use std::{path::PathBuf, process::Stdio};
 use anyhow::{Result, bail};
 use image::ImageReader;
 use ratatui_core::layout::Rect;
-use tokio::{io::AsyncWriteExt, process::{Child, Command}, sync::mpsc::{self, UnboundedSender}};
+use tokio::{
+	io::AsyncWriteExt,
+	process::{Child, Command},
+	sync::mpsc::{self, UnboundedSender},
+};
 use tracing::{debug, warn};
 use yazi_config::YAZI;
 use yazi_emulator::Dimension;
 use yazi_shared::{LOG_LEVEL, env_exists};
 use yazi_shim::{cell::RoCell, strum::IntoStr};
 
-use crate::{ADAPTOR, drivers::Driver};
+use crate::drivers::Driver;
 
-type Cmd = Option<(PathBuf, Rect)>;
+enum Cmd {
+	Show { id: u32, path: PathBuf, rect: Rect },
+	Erase { id: u32 },
+}
 
 static DEMON: RoCell<Option<UnboundedSender<Cmd>>> = RoCell::new();
 
@@ -44,7 +51,7 @@ impl Ueberzug {
 		DEMON.init(Some(tx))
 	}
 
-	pub(super) async fn image_show(path: PathBuf, max: Rect) -> Result<Rect> {
+	pub(super) async fn image_show(id: u32, path: PathBuf, max: Rect) -> Result<Rect> {
 		let Some(tx) = &*DEMON else {
 			bail!("uninitialized ueberzugpp");
 		};
@@ -56,21 +63,20 @@ impl Ueberzug {
 
 		let area = Dimension::cell_size()
 			.map(|(cw, ch)| Rect {
-				x:      max.x,
-				y:      max.y,
-				width:  max.width.min((w.min(YAZI.preview.max_width as _) as f64 / cw).ceil() as _),
+				x: max.x,
+				y: max.y,
+				width: max.width.min((w.min(YAZI.preview.max_width as _) as f64 / cw).ceil() as _),
 				height: max.height.min((h.min(YAZI.preview.max_height as _) as f64 / ch).ceil() as _),
 			})
 			.unwrap_or(max);
 
-		tx.send(Some((path, area)))?;
-		ADAPTOR.shown_store(area);
+		tx.send(Cmd::Show { id, path, rect: area })?;
 		Ok(area)
 	}
 
-	pub(super) fn image_erase(_: Rect) -> Result<()> {
+	pub(super) fn image_erase(id: u32, _: Rect) -> Result<()> {
 		if let Some(tx) = &*DEMON {
-			Ok(tx.send(None)?)
+			Ok(tx.send(Cmd::Erase { id })?)
 		} else {
 			bail!("uninitialized ueberzugpp");
 		}
@@ -113,23 +119,31 @@ impl Ueberzug {
 		rect
 	}
 
-	async fn send_command(driver: Driver, child: &mut Child, cmd: Cmd) -> Result<()> {
-		let s = if let Some((path, rect)) = cmd {
-			debug!("ueberzugpp rect before adjustment: {:?}", rect);
-			let rect = Self::adjust_rect(rect);
-			debug!("ueberzugpp rect after adjustment: {:?}", rect);
+	fn identifier(id: u32) -> String {
+		if id == 0 { "yazi".to_owned() } else { format!("yazi-{id}") }
+	}
 
-			format!(
-				r#"{{"action":"add","identifier":"yazi","x":{},"y":{},"max_width":{},"max_height":{},"path":"{}"}}{}"#,
-				rect.x,
-				rect.y,
-				rect.width,
-				rect.height,
-				path.to_string_lossy(),
-				'\n'
-			)
-		} else {
-			format!(r#"{{"action":"remove","identifier":"yazi"}}{}"#, '\n')
+	async fn send_command(driver: Driver, child: &mut Child, cmd: Cmd) -> Result<()> {
+		let s = match cmd {
+			Cmd::Show { id, path, rect } => {
+				debug!("ueberzugpp rect before adjustment: {:?}", rect);
+				let rect = Self::adjust_rect(rect);
+				debug!("ueberzugpp rect after adjustment: {:?}", rect);
+
+				format!(
+					r#"{{"action":"add","identifier":"{}","x":{},"y":{},"max_width":{},"max_height":{},"path":"{}"}}{}"#,
+					Self::identifier(id),
+					rect.x,
+					rect.y,
+					rect.width,
+					rect.height,
+					path.to_string_lossy(),
+					'\n'
+				)
+			}
+			Cmd::Erase { id } => {
+				format!(r#"{{"action":"remove","identifier":"{}"}}{}"#, Self::identifier(id), '\n')
+			}
 		};
 
 		debug!("`ueberzugpp layer -so {driver}` command: {s}");

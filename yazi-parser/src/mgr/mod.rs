@@ -11,6 +11,7 @@ yazi_macro::mod_flat!(
 	find
 	find_arrow
 	find_do
+	grid
 	hardlink
 	hidden
 	hover
